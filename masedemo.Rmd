@@ -1,0 +1,217 @@
+---
+title: mase Demo
+header-includes:
+   - \usepackage{xcolor}
+output:
+  xaringan::moon_reader:
+    css: ["default", "cssSlides/styling.css", "cssSlides/fonts.css"]
+    lib_dir: libsSlides
+    self_contained: false
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      navigation:
+        scroll: false      
+    seal: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, 
+                      warning = FALSE, fig.width = 6,
+                      fig.height = 4,
+                      fig.retina = 3, fig.align = 'center')
+
+options(digits=2, scipen = 3)
+
+# Fix how htmlwidgets are rendered 
+# https://stackoverflow.com/questions/65766516/xaringan-presentation-not-displaying-html-widgets-even-when-knitting-provided-t
+options(htmltools.preserve.raw = FALSE)
+library(knitr)
+options(knitr.table.format = "html")
+library(tidyverse)
+```
+
+
+class: center, middle
+
+
+class: title-slide, left, middle
+background-image: url("img/mases.001.png")
+background-position: right
+background-size: contain
+background-color: #F1EBD5
+
+
+.pull-left[
+
+# `mase` Demonstration
+
+### Kelly McConville 
+
+.large[2021 Sixth International Conference on Establishment Statistics]
+
+]
+
+
+
+---
+
+
+## Model-Assisted Survey Estimation
+
+**Goal**: Estimate $t_y = \sum_{i \in U} y_i$.
+
+
+Data we have:
+
+```{r, echo = FALSE}
+knitr::include_graphics("img/setup.png")
+```
+
+* Along with first-order inclusion probabilities
+
+
+---
+
+## Estimators in mase
+
+
+$$\hat{t}_y = \sum_{i \in U} \hat{m}(x_i) + \sum_{i \in s} \frac{y_i - \hat{m}(x_i)}{\pi_i}$$
+
+Where $m(\cdot)$ is:
+
+* Linear regression through the origin: `ratioEstimator()`
+* Linear regression: `greg()` (Generalized Regression Estimator)
+* Elastic-Net regression: `gregElasticNet()`
+* Regression trees: `gregTree()`
+    + Uses `rpms`
+
+
+---
+
+## Example Dataset: `pdxTrees`
+
+.left-column[
+
+```{r, echo = FALSE}
+knitr::include_graphics("img/pdxHexSticker.png")
+```
+
+]
+
+.right-column[
+
+`r emo::ji("deciduous_tree")` Data from Portland, OR Tree Inventory Project
+
+`r emo::ji("deciduous_tree")` [Vignette](https://cran.r-project.org/web/packages/pdxTrees/vignettes/pdxTrees-vignette.html)
+
+`r emo::ji("deciduous_tree")` [CRAN](https://cran.r-project.org/web/packages/pdxTrees/)
+
+`r emo::ji("deciduous_tree")` [GitHub](https://github.com/mcconvil/pdxTrees)
+
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(pdxTrees)
+pop <- get_pdxTrees_parks() %>%
+  replace_na(list(Functional_Type = "Unknown"))
+nrow(pop)
+```
+
+]
+
+
+---
+
+## Example Dataset: `pdxTrees`
+
+**Want to estimate the average diameter at breast height**
+
+* Y = `DBH`
+
+* Auxiliary data: X = `Tree_Height`, `Condition`, `Functional_Type`
+    + Known for every tree in the population
+
+```{r}
+set.seed(44)
+samp_SRS <- sample_n(pop, 1000) %>%
+  select(DBH, Tree_Height, Condition, Functional_Type) %>%
+  mutate(pi = 1000/nrow(pop))
+```
+
+---
+
+## Exploratory Data Analysis
+
+```{r}
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Tree_Height, 
+                     y = DBH, 
+                     color = Condition,
+                     size = 1/pi)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+---
+
+## Exploratory Data Analysis
+
+
+```{r}
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Condition, 
+                     y = DBH, 
+                     fill = Condition)) +
+  geom_boxplot() +
+  guides(fill = FALSE)
+```
+
+---
+
+## Exploratory Data Analysis
+
+
+```{r}
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Functional_Type, 
+                     y = DBH, 
+                     fill = Functional_Type)) +
+  geom_boxplot() +
+  guides(fill = FALSE)
+```
+
+---
+
+## Post-Stratified Estimator
+
+```{r}
+library(mase)
+x_sample <- select(samp_SRS, Functional_Type)
+x_pop <- select(pop, Functional_Type)
+postStrat(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "raw")
+```
+
+---
+
+## Generalized Regression Estimator
+
+---
+
+## Generalized Regression Estimator with Elastic Net
+
+---
+
+## Generalized Regression Estimator with Regression Trees
+
+
+---
+
+## Aggregated Auxiliary Information
+
+---
+
+## Categorical Response Variable
+

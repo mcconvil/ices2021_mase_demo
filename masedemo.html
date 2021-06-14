@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>mase Demo</title>
+    <meta charset="utf-8" />
+    <link href="libsSlides/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="cssSlides/styling.css" type="text/css" />
+    <link rel="stylesheet" href="cssSlides/fonts.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+
+class: center, middle
+
+
+class: title-slide, left, middle
+background-image: url("img/mases.001.png")
+background-position: right
+background-size: contain
+background-color: #F1EBD5
+
+
+.pull-left[
+
+# `mase` Demonstration
+
+### Kelly McConville 
+
+.large[2021 Sixth International Conference on Establishment Statistics]
+
+]
+
+
+
+---
+
+
+## Model-Assisted Survey Estimation
+
+**Goal**: Estimate `\(t_y = \sum_{i \in U} y_i\)`.
+
+
+Data we have:
+
+&lt;img src="img/setup.png" width="1186" style="display: block; margin: auto;" /&gt;
+
+* Along with first-order inclusion probabilities
+
+
+---
+
+## Estimators in mase
+
+
+`$$\hat{t}_y = \sum_{i \in U} \hat{m}(x_i) + \sum_{i \in s} \frac{y_i - \hat{m}(x_i)}{\pi_i}$$`
+
+Where `\(m(\cdot)\)` is:
+
+* Linear regression through the origin: `ratioEstimator()`
+* Linear regression: `greg()` (Generalized Regression Estimator)
+* Elastic-Net regression: `gregElasticNet()`
+* Regression trees: `gregTree()`
+    + Uses `rpms`
+
+
+---
+
+## Example Dataset: `pdxTrees`
+
+.left-column[
+
+&lt;img src="img/pdxHexSticker.png" width="327" style="display: block; margin: auto;" /&gt;
+
+]
+
+.right-column[
+
+🌳 Data from Portland, OR Tree Inventory Project
+
+🌳 [Vignette](https://cran.r-project.org/web/packages/pdxTrees/vignettes/pdxTrees-vignette.html)
+
+🌳 [CRAN](https://cran.r-project.org/web/packages/pdxTrees/)
+
+🌳 [GitHub](https://github.com/mcconvil/pdxTrees)
+
+
+
+```r
+library(tidyverse)
+library(pdxTrees)
+pop &lt;- get_pdxTrees_parks() %&gt;%
+  replace_na(list(Functional_Type = "Unknown"))
+nrow(pop)
+```
+
+```
+## [1] 25534
+```
+
+]
+
+
+---
+
+## Example Dataset: `pdxTrees`
+
+**Want to estimate the average diameter at breast height**
+
+* Y = `DBH`
+
+* Auxiliary data: X = `Tree_Height`, `Condition`, `Functional_Type`
+    + Known for every tree in the population
+
+
+```r
+set.seed(44)
+samp_SRS &lt;- sample_n(pop, 1000) %&gt;%
+  select(DBH, Tree_Height, Condition, Functional_Type) %&gt;%
+  mutate(pi = 1000/nrow(pop))
+```
+
+---
+
+## Exploratory Data Analysis
+
+
+```r
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Tree_Height, 
+                     y = DBH, 
+                     color = Condition,
+                     size = 1/pi)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+&lt;img src="masedemo_files/figure-html/unnamed-chunk-5-1.png" width="432" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Exploratory Data Analysis
+
+
+
+```r
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Condition, 
+                     y = DBH, 
+                     fill = Condition)) +
+  geom_boxplot() +
+  guides(fill = FALSE)
+```
+
+&lt;img src="masedemo_files/figure-html/unnamed-chunk-6-1.png" width="432" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Exploratory Data Analysis
+
+
+
+```r
+ggplot(data = samp_SRS, 
+       mapping = aes(x = Functional_Type, 
+                     y = DBH, 
+                     fill = Functional_Type)) +
+  geom_boxplot() +
+  guides(fill = FALSE)
+```
+
+&lt;img src="masedemo_files/figure-html/unnamed-chunk-7-1.png" width="432" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Post-Stratified Estimator
+
+
+```r
+library(mase)
+x_sample &lt;- select(samp_SRS, Functional_Type)
+x_pop &lt;- select(pop, Functional_Type)
+postStrat(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "raw")
+```
+
+```
+## $pop_total
+## [1] 547829
+## 
+## $pop_mean
+## [1] 21
+## 
+## $pop_total_var
+## [1] 111130693
+## 
+## $pop_mean_var
+## [1] 0.17
+## 
+## $strat_ests
+## # A tibble: 5 x 3
+##   x       strat_pop_total[,1] strat_pop_mean[,1]
+##   &lt;fct&gt;                 &lt;dbl&gt;              &lt;dbl&gt;
+## 1 BD                  243855.              17.3 
+## 2 BE                    3874.              15.9 
+## 3 CD                    5068.              21.6 
+## 4 CE                  292483.              27.3 
+## 5 Unknown               2549.               9.65
+## 
+## $weights
+##    [1] 25 24 25 26 26 25 26 25 26 26 26 26 26 25 26 26 25 25 26 26 25 25 25 25
+##   [25] 26 26 25 25 26 25 26 25 25 26 26 26 25 25 25 25 25 26 25 26 25 25 25 26
+##   [49] 25 25 26 24 25 25 25 26 25 25 25 26 26 25 26 26 25 25 26 25 25 26 25 25
+##   [73] 25 25 24 27 25 25 25 24 26 26 25 25 25 26 26 25 26 25 26 25 26 26 25 25
+##   [97] 26 26 26 26 26 25 25 25 25 26 26 26 26 26 25 25 26 25 25 25 25 25 26 25
+##  [121] 26 26 25 26 25 25 25 26 26 25 26 26 25 25 25 26 25 26 25 26 25 26 25 26
+##  [145] 25 25 26 25 25 26 26 26 26 25 26 26 25 26 26 25 25 25 26 25 25 26 25 26
+##  [169] 25 25 25 27 26 25 26 25 25 26 26 25 25 24 26 25 25 25 26 26 26 26 26 26
+##  [193] 25 25 25 25 25 25 25 25 25 26 26 26 25 25 25 26 25 26 25 25 26 25 25 26
+##  [217] 25 26 25 25 26 25 25 25 25 25 25 26 25 26 26 26 26 26 26 26 25 25 26 25
+##  [241] 25 25 26 26 25 26 25 26 26 26 26 26 25 25 26 26 26 25 26 25 25 25 26 26
+##  [265] 26 25 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 25 25 25 26 25 25
+##  [289] 25 27 26 25 25 26 25 25 25 26 25 25 25 26 25 25 27 25 25 25 25 26 25 25
+##  [313] 26 25 26 25 25 25 26 26 26 26 25 25 25 26 26 25 26 25 25 25 26 26 26 26
+##  [337] 26 25 25 25 26 26 25 26 26 26 26 26 26 25 25 25 25 25 25 25 25 25 25 25
+##  [361] 26 25 25 26 26 25 26 25 25 25 26 25 26 25 25 26 25 26 26 25 26 25 25 26
+##  [385] 25 26 26 26 25 25 25 25 26 26 26 25 26 39 25 26 26 25 25 25 26 25 25 25
+##  [409] 25 25 26 26 25 26 26 26 25 25 26 25 25 25 26 26 25 25 25 25 25 25 26 26
+##  [433] 26 25 25 25 25 25 26 25 25 26 25 26 26 25 26 26 26 25 25 26 25 26 24 25
+##  [457] 25 25 25 25 26 25 26 25 26 25 26 25 25 26 25 26 27 25 26 25 25 26 26 26
+##  [481] 26 26 25 26 26 26 25 25 26 25 25 25 26 39 26 26 26 25 26 25 25 25 25 25
+##  [505] 26 26 25 26 26 26 26 25 26 25 25 26 26 25 26 26 25 25 26 25 26 25 26 26
+##  [529] 25 26 25 26 25 25 25 26 26 26 26 25 26 25 25 25 25 26 26 25 26 25 25 25
+##  [553] 25 26 26 25 26 25 25 25 26 26 25 25 25 25 25 26 25 25 25 25 26 25 25 25
+##  [577] 25 26 25 25 25 25 25 25 26 25 25 26 25 25 25 26 25 25 25 25 25 25 25 25
+##  [601] 25 26 25 25 39 25 26 25 25 26 25 26 26 25 26 26 25 25 25 25 26 25 25 25
+##  [625] 26 25 25 25 26 26 25 26 25 25 26 26 26 25 25 26 26 25 26 25 25 25 25 25
+##  [649] 25 25 26 25 25 26 25 26 26 25 25 25 26 26 26 25 25 25 25 26 26 26 26 26
+##  [673] 25 26 26 26 26 26 26 26 25 26 25 26 26 25 27 26 25 25 26 25 26 25 25 26
+##  [697] 25 25 24 25 26 26 25 25 25 27 26 25 26 26 26 26 26 26 25 25 25 26 25 26
+##  [721] 25 24 25 26 25 25 25 25 25 25 25 25 25 25 25 24 25 25 26 25 25 26 25 25
+##  [745] 25 25 25 26 39 25 25 26 26 26 25 25 25 25 25 25 26 25 26 27 25 26 25 26
+##  [769] 26 25 26 25 26 25 25 26 26 25 26 26 26 26 26 25 25 25 26 25 25 26 26 25
+##  [793] 25 25 26 25 26 26 25 26 26 25 25 26 26 25 25 25 25 25 25 26 25 26 25 26
+##  [817] 25 25 25 25 26 24 25 26 25 26 26 26 39 26 26 25 25 26 26 26 25 25 25 26
+##  [841] 25 26 26 25 25 25 25 26 26 25 25 25 26 25 26 25 26 25 25 26 25 25 26 25
+##  [865] 25 25 26 26 25 25 24 26 25 25 25 25 25 26 25 25 25 26 25 26 26 26 25 26
+##  [889] 25 25 26 25 25 25 25 26 26 25 26 26 25 25 25 25 25 26 25 25 27 25 26 25
+##  [913] 25 26 26 26 26 25 25 25 25 25 25 26 25 26 26 25 25 25 25 25 26 26 26 25
+##  [937] 26 25 25 25 26 25 26 26 25 26 25 25 25 26 25 26 26 25 25 26 25 25 25 25
+##  [961] 25 25 25 25 25 26 39 25 25 25 26 25 25 25 25 25 26 25 26 26 25 26 25 25
+##  [985] 26 25 25 26 26 25 25 26 26 26 25 26 25 25 25 25
+```
+
+---
+
+## Generalized Regression Estimator
+
+---
+
+## Generalized Regression Estimator with Elastic Net
+
+---
+
+## Generalized Regression Estimator with Regression Trees
+
+
+---
+
+## Aggregated Auxiliary Information
+
+---
+
+## Categorical Response Variable
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"navigation": {
+"scroll": false
+}
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
