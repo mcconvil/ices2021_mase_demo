@@ -1,1 +1,1 @@
-# ices2021_mase_demo
+Slides for the `mase` (Model Assisted Survey Estimation) Demonstration at the [ASA's Sixth International Conference on Establishment Statistics (ICES VI)](https://ww2.amstat.org/meetings/ices/2021/) which was held virtually, June 14–17, 2021.
