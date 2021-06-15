@@ -115,7 +115,9 @@ knitr::include_graphics("img/pdxHexSticker.png")
 library(tidyverse)
 library(pdxTrees)
 pop <- get_pdxTrees_parks() %>%
-  replace_na(list(Functional_Type = "Unknown"))
+  replace_na(list(Functional_Type = "Unknown")) %>%
+  drop_na(DBH, Tree_Height, Condition,
+          Functional_Type)
 nrow(pop)
 ```
 
@@ -184,34 +186,138 @@ ggplot(data = samp_SRS,
 
 ---
 
-## Post-Stratified Estimator
+### Post-Stratified Estimator
 
 ```{r}
 library(mase)
-x_sample <- select(samp_SRS, Functional_Type)
+
+x_sample <- select(samp_SRS, Functional_Type, -pi)
+
 x_pop <- select(pop, Functional_Type)
+
 postStrat(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop,
           pi = samp_SRS$pi, var_est = TRUE, data_type = "raw")
 ```
 
 ---
 
-## Generalized Regression Estimator
+### Generalized Regression Estimator
+
+```{r}
+x_sample <- select(samp_SRS, Condition, Tree_Height) %>%
+  as.data.frame()
+
+x_pop <- select(pop, names(x_sample))
+
+greg(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "raw")
+```
+
 
 ---
 
-## Generalized Regression Estimator with Elastic Net
+### Generalized Regression Estimator with Elastic Net
+
+```{r}
+gregElasticNet(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "raw")
+```
 
 ---
 
-## Generalized Regression Estimator with Regression Trees
+### Generalized Regression Estimator with Regression Trees
+
+```{r}
+x_sample <- select(samp_SRS, Functional_Type, Tree_Height) %>%
+  mutate(Functional_Type = factor(Functional_Type)) %>%
+  as.data.frame() 
+
+x_pop <- select(pop, names(x_sample)) %>%
+  mutate(Functional_Type = factor(Functional_Type)) %>%
+  as.data.frame()
+
+est <- gregTree(y = samp_SRS$DBH, x_sample = x_sample, 
+                x_pop = x_pop, pi = samp_SRS$pi)
+est$tree
+```
 
 
 ---
 
-## Aggregated Auxiliary Information
+### Aggregated Auxiliary Information
+
+* Don't have unit level data for the non-sampled units
+* Just have aggregated data
+
+```{r, echo = FALSE}
+library(recipes)
+
+x_pop <- select(pop, Condition, Tree_Height)
+
+x_pop_agg <- recipe(~ Condition + Tree_Height, data = x_pop) %>%
+  step_dummy(Condition) %>%
+  prep(training = x_pop) %>%
+  bake(new_data = NULL) %>%
+  summarise_all(mean)
+```
+
+```{r}
+x_pop_agg
+```
+
+
+```{r}
+library(recipes)
+
+x_sample <- recipe(~ Condition + Tree_Height, data = samp_SRS) %>%
+  step_dummy(Condition) %>%
+  prep(training = samp_SRS) %>%
+  bake(new_data = NULL) %>%
+  as.data.frame()
+
+greg(y = samp_SRS$DBH, x_sample = x_sample, x_pop = x_pop_agg,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "means")
+```
+
 
 ---
 
-## Categorical Response Variable
+### Categorical Response Variable
+
+```{r}
+samp_SRS <- mutate(samp_SRS, B_Type = if_else(Functional_Type %in%
+                                      c("BD", "BE"),  1, 0)) 
+
+x_sample <- select(samp_SRS, Condition, Tree_Height) %>%
+  as.data.frame()
+
+x_pop <- select(pop, names(x_sample))
+
+greg(y = samp_SRS$B_Type, x_sample = x_sample, x_pop = x_pop,
+          pi = samp_SRS$pi, var_est = TRUE, data_type = "raw",
+     model = "logistic")
+```
+
+---
+
+background-image: url("img/mases.001.png")
+background-position: right
+background-size: contain
+background-color: #F1EBD5
+
+
+
+.pull-left[
+
+## Feedback Wanted
+
+* Still in development
+
+* Currently geared more toward use with US Forest Inventory and Analysis data
+
+* What's on your wish list?
+
+* Thank you for stopping by!
+
+]
 
