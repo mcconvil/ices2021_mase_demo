@@ -74,6 +74,35 @@ knitr::include_graphics("img/setup.png")
 
 ---
 
+background-image: url("img/mases.001.png")
+background-position: right
+background-size: contain
+background-color: #F1EBD5
+
+
+
+.pull-left[
+
+## Documentation
+
+* [CRAN](https://cran.r-project.org/web/packages/mase/)
+
+```{r, eval = FALSE}
+install.packages("mase")
+```
+
+
+* Very Developmental Version:  [GitHub](https://github.com/mcconvil/mase)
+    + Recommend installing the CRAN version
+
+
+]
+
+
+
+
+---
+
 ## Estimators in mase
 
 
